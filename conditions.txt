@@ -1,0 +1,10 @@
+format:
+if setting a specific skill:
+(skill, character, color of the skill, position of the skill(optional))
+if setting the order of sinners:
+(speed, baseCharacter, CharactersThatAreSlower)
+###please use the pronouns that are printed in the console instead of the sinner names###
+
+
+skill,c4,purple
+skill,c5,purple

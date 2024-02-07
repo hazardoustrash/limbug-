@@ -42,10 +42,13 @@ def check_restart_conditions(current_skills, conditions):
         if condition['type'] == 'skill':
             character, required_skill, slot = condition['character'], condition['skill'], condition.get('slot', None)
             if slot:  # If a specific slot is mentioned
+                # Adjusting the index for slot to match Python's 0-based indexing.
+                # Also ensure it checks up to the third slot.
                 if current_skills[character][slot] != required_skill:
                     return True  # Skill in specified slot does not match.
-            else:  # If no specific slot is mentioned, check both slots
-                if not (required_skill in current_skills[character][1:]):
+            else:  # If no specific slot is mentioned, check all skill slots
+                # Now checks all three skill slots.
+                if not (required_skill in current_skills[character][1:4]):
                     return True
 
         elif condition['type'] == 'speed':

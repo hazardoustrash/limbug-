@@ -1,4 +1,4 @@
-from pixel_color_detector import get_pixel_color
+from pixel_color_detector import get_pixel_color, get_darkened_pixel_color
 import pyautogui
 from fuzzywuzzy import process
 from name_recognition import screenshot_and_detect
@@ -24,81 +24,133 @@ def initialize_sinners(start, length, num):
     return sinners
 
 
-def get_skills(sinners, start, length):
+def thirdRowMacro():
+    pyautogui.scroll(10)
+    pyautogui.moveTo(490, 811)
+    pyautogui.leftClick()
+    pyautogui.moveTo((110, 890))
+    pyautogui.leftClick()
+    time.sleep(0.2)
+    pyautogui.drag(400, -300, 0.3, button='left')
+    time.sleep(0.3)
+    pyautogui.moveTo(490, 811)
+    pyautogui.leftClick()
+    pyautogui.moveTo((110, 890))
+
+
+def get_skills(sinners, starts, lengths):
     """
+    Retrieves the skills for each sinner by moving the cursor to each skill.
+    Assumes that the order of sinners does not change between skill rows.
 
     :param sinners: the list of sinners
-    :param start: starting coordinates, same as above
-    :param length: same as initialize_sinners
-    :return: the skills stored in a dictionary, key = sinner's name, value = [place, skill1, skill2]
+    :param starts: starting coordinates for each row
+    :param lengths: distances between skill icons in each row
+    :return: the skills stored in a dictionary, key = sinner's name, value = [position, skill1, skill2, skill3]
     """
     skills = {sinner: [] for sinner in sinners}
-    for i in range(len(start)):
-        for j in range(len(sinners)):
-            pyautogui.moveTo((start[i][0] + j * length[i]), start[i][1])
-            detected = screenshot_and_detect().strip()
-            name, _ = process.extractOne(detected, sinners)
-            skill_color, colorRgb = get_pixel_color()
-            if i == 0:
-                skills[name].append(j)
-            skills[name].append(skill_color)
+
+    # First row (detect names and first skill)
+    for j in range(len(sinners)):
+        coords = (starts[0][0] + j * lengths[0], starts[0][1])
+        pyautogui.moveTo(coords)
+        name = screenshot_and_detect().strip()  # OCR to detect name
+        skill_color, _ = get_pixel_color()  # Detect first skill color
+        name, _ = process.extractOne(name, sinners)
+        skills[name] = [j, skill_color]  # Store position and first skill
+
+    # Second row (use stored positions)
+    for j, sinner in enumerate(sinners):
+        coords = (starts[1][0] + skills[sinner][0] * lengths[1], starts[1][1])
+        pyautogui.moveTo(coords)
+        skill_color, _ = get_pixel_color()  # Detect second skill color
+        skills[sinner].append(skill_color)  # Append second skill
+
+    # Third row requires a macro
+    thirdRowMacro()
+
+    # Third row (use stored positions)
+    for j, sinner in enumerate(sinners):
+        coords = (starts[2][0] + skills[sinner][0] * lengths[2], starts[2][1])
+        skill_color, _ = get_darkened_pixel_color(coords)  # Detect third skill color
+        skills[sinner].append(skill_color)  # Append third skill
+
+    pyautogui.leftClick()
 
     return skills
 
 
 def restart_level():
     """
-    macro for restarting the level, needs changes based on the screen size, this one is for Mac 14 inch
-    :return:
+    Restarts the level with a macro for a 14-inch Mac screen.
     """
     setting = (1458, 85)
     restart = (766, 526)
-    pyautogui.leftClick(setting)
+    pyautogui.click(setting)
     time.sleep(0.2)
-    pyautogui.leftClick(restart)
-    time.sleep(3)
+    pyautogui.click(restart)
+    wait_for_game_to_load()
+
+
+def wait_for_game_to_load():
+    """
+    Waits for the game to load by checking the color of two pixels.
+    """
     t = 0
     while True:
         wrath, _ = get_pixel_color((1454, 153))
         sloth, _ = get_pixel_color((1454, 230))
-        if (wrath == 'red' and sloth == 'yellow') or t > 20:
-            print("loading complete")
+        if wrath == 'red' and sloth == 'yellow':
+            print("Loading complete.")
             break
-        else:
-            print('loading')
-            time.sleep(0.5)
-            t += 0.5
+        if t > 20:
+            print("Loading timeout.")
+            break
+        print('Loading...')
+        time.sleep(0.5)
+        t += 0.5
 
 
-lowerStart = (490, 811)
-lowerLength = 91
-upperStart = (518, 759)
-upperLength = 77
+def generate_name_dict(characters):
+    """
+    Generates a dictionary for pronouns used in conditions.
+    """
+    return {'c' + str(i): char for i, char in enumerate(characters)}
 
-if __name__ == '__main__':
+
+def main():
+    """
+    Main function to run the script.
+    """
     time.sleep(3)
     characters = initialize_sinners(lowerStart, lowerLength, 6)
-    # generate the dictionary for the pronouns used, allows easier config for the conditions
-    name_dict = {}
-    for i in range(len(characters)):
-        name_dict['c' + str(i)] = characters[i]
-
+    name_dict = generate_name_dict(characters)
     print(name_dict)
-    _ = input('press enter after you have configured the conditions')
+    input('Press Enter after configuring the conditions...')
     time.sleep(3)
-    # now switch back to the game session, and wait for the notification
     conditions = parse_conditions_file('conditions.txt', name_dict)
     print(conditions)
     if conditions:
         while True:
-            skill_list = get_skills(characters, [lowerStart, upperStart], [lowerLength, upperLength])
+            skill_list = get_skills(characters, [lowerStart, middleStart, upperStart], [lowerLength, middleLength, upperLength])
+            print(skill_list)
             if check_restart_conditions(skill_list, conditions):
                 restart_level()
             else:
                 os.system('say "我喜欢你"')  # define your own notifications!
                 print("skill set found")
                 break
-            print(skill_list)
 
     else:
         print("condition file not loaded")
+
+
+lowerStart = (490, 811)
+lowerLength = 91
+middleStart = (518, 759)
+middleLength = 77
+upperStart = (492, 772)
+upperLength = 87
+
+if __name__ == '__main__':
+    main()
